@@ -1,11 +1,22 @@
 import pymysql
+
+from io import BytesIO
 from gtts import gTTS
-from playsound import playsound
+from pygame import mixer
 from time import sleep
-from os import remove
 
 OUTPUT_PATH = ".\\multimedia\\audio\\output.mp3"
+BELL_PATH = ".\\multimedia\\audio\\aviso.mpeg"
 LANG = "es"
+
+
+def speak(file):
+    mixer.init()
+    mixer.music.load(file)
+    mixer.music.play()
+    while mixer.music.get_busy():
+        continue
+
 
 while True:
     db = pymysql.connect(host="165.22.193.102", port=3306, user="root",
@@ -19,14 +30,17 @@ while True:
     if turn:
         text_to_read = f"Turno número {turn['Number']}, favor pasar a la posición {turn['Position']}"
         sound = gTTS(text=text_to_read, lang=LANG)
-        sound.save(OUTPUT_PATH)
-
-        playsound(OUTPUT_PATH)
+        with BytesIO() as stream:
+            sound.write_to_fp(stream)
+            stream.seek(0)
+            print(f"Playing {text_to_read}...")
+            speak(BELL_PATH)
+            speak(stream)
 
         cursor.execute(
             f"UPDATE Turnos SET Status = 1 WHERE IDTurno={turn['IDTurno']}"
         )
+        print("Updating db...")
         db.commit()
-        remove(OUTPUT_PATH)
 
     sleep(5)
